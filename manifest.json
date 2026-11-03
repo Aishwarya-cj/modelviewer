@@ -1,0 +1,77 @@
+{
+  "productName": "Sharp MX Multi-Function Modular Print System",
+  "description": "Modular 7-Part Industrial Office Printing and Finishing System",
+  "components": {
+    "Base-Model-TU11.glb": {
+      "displayName": "Base Engine Unit (TU11)",
+      "partNumber": "Part 1",
+      "category": "Core System",
+      "description": "Central imaging engine and primary paper processing chassis",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "visibleDefault": true
+    },
+    "TRAY-DE12.glb": {
+      "displayName": "Paper Feed Tray Deck (DE12)",
+      "partNumber": "Part 2",
+      "category": "Paper Feed",
+      "description": "Dual 500-sheet bottom paper feeding drawer unit",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "visibleDefault": true
+    },
+    "Finisher-FN15.glb": {
+      "displayName": "Staple Finisher Unit (FN15)",
+      "partNumber": "Part 3",
+      "category": "Finishing",
+      "description": "High-volume document sorter, stapler, and stacker module",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "visibleDefault": true
+    },
+    "Large-Capacitor-LC10.glb": {
+      "displayName": "Large Capacity Cassette (LC10)",
+      "partNumber": "Part 4",
+      "category": "Paper Feed",
+      "description": "High-capacity side paper reservoir for bulk production",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "visibleDefault": true
+    },
+    "BP-UT10.glb": {
+      "displayName": "Utility Tray / Bypass (BP-UT10)",
+      "partNumber": "Part 5",
+      "category": "Accessories",
+      "description": "Auxiliary bypass paper feed and utility working tray",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "visibleDefault": true
+    },
+    "BP-TR12.glb": {
+      "displayName": "Exit Job Tray Primary (BP-TR12)",
+      "partNumber": "Part 6",
+      "category": "Output",
+      "description": "Primary job separator output tray module",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "visibleDefault": true
+    },
+    "BP-TR12 1.glb": {
+      "displayName": "Upper Exit Tray Guide (BP-TR12 Variant)",
+      "partNumber": "Part 7",
+      "category": "Output",
+      "description": "Secondary upper document delivery guide and sensor bracket",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "visibleDefault": true
+    }
+  }
+}
+

@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Printer 3D & AR Viewer</title>
+
+  <!-- Primary Google model-viewer script with CDN fallback -->
+  <script type="module" src="js/model-viewer.min.js"></script>
+  <script type="module">
+    if (!customElements.get('model-viewer')) {
+      const cdnScript = document.createElement('script');
+      cdnScript.type = 'module';
+      cdnScript.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js';
+      document.head.appendChild(cdnScript);
+    }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at 50% 38%, #ffffff 0%, #ebeef2 60%, #dfe3e8 100%);
+      color: #1a1a1a;
+    }
+
+    /* 3D Model Viewer Fullscreen Container */
+    #printer-viewer {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      outline: none;
+      --poster-color: transparent;
+    }
+
+    /* Loading Progress Bar */
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: rgba(0, 0, 0, 0.05);
+      z-index: 300;
+      transition: opacity 0.3s ease;
+    }
+
+    .progress-bar.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .update-bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #06b6d4);
+      transition: width 0.2s ease;
+    }
+
+    /* Minimal Error Banner */
+    .error-banner {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(220, 38, 38, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+      z-index: 400;
+    }
+
+    .error-banner.show {
+      display: flex;
+    }
+
+    /* Assembling Indicator Badge */
+    .assembling-badge {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(18, 18, 20, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: rgba(255, 255, 255, 0.9);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      z-index: 250;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .assembling-badge.show {
+      display: flex;
+    }
+
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Bottom UI Wrapper */
+    .bottom-ui-wrapper {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 100;
+      pointer-events: none;
+      padding-bottom: 16px;
+    }
+
+    /* 3D View & AR View Pill Controls */
+    .view-mode-bar {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(18, 18, 20, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 5px 6px;
+      border-radius: 9999px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      margin-bottom: 12px;
+      user-select: none;
+    }
+
+    .ctrl-btn {
+      appearance: none;
+      border: none;
+      outline: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 9999px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+    }
+
+    .ctrl-btn svg {
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+      stroke-width: 2;
+    }
+
+    .ctrl-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .ctrl-btn:active {
+      transform: scale(0.97);
+    }
+
+    .ctrl-btn.active {
+      background: #ffffff;
+      color: #0d0d0e;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Accessory Selection Panel */
+    .accessory-panel {
+      pointer-events: auto;
+      width: 100%;
+      max-width: 960px;
+      padding: 0 16px;
+    }
+
+    .accessory-scroll {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 6px 4px 8px;
+      scrollbar-width: none;
+      /* Firefox */
+      -ms-overflow-style: none;
+      /* IE/Edge */
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .accessory-scroll::-webkit-scrollbar {
+      display: none;
+      /* Chrome/Safari */
+    }
+
+    /* Accessory Card */
+    .acc-card {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(18, 18, 20, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 9px 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    }
+
+    .acc-card:hover {
+      background: rgba(28, 28, 32, 0.9);
+      border-color: rgba(255, 255, 255, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .acc-card:active {
+      transform: scale(0.98);
+    }
+
+    .acc-card.selected {
+      background: rgba(30, 58, 138, 0.6);
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px #3b82f6, 0 6px 20px rgba(59, 130, 246, 0.25);
+    }
+
+    /* Custom Checkbox Indicator */
+    .acc-checkbox {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1.5px solid rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.18s ease;
+    }
+
+    .acc-card.selected .acc-checkbox {
+      background: #3b82f6;
+      border-color: #3b82f6;
+    }
+
+    .acc-checkbox svg {
+      width: 12px;
+      height: 12px;
+      stroke: white;
+      stroke-width: 2.8;
+      display: none;
+    }
+
+    .acc-card.selected .acc-checkbox svg {
+      display: block;
+    }
+
+    .acc-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .acc-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.95);
+      white-space: nowrap;
+    }
+
+    .acc-meta {
+      font-size: 10.5px;
+      color: rgba(255, 255, 255, 0.55);
+      white-space: nowrap;
+    }
+
+    .acc-card.selected .acc-meta {
+      color: #93c5fd;
+    }
+
+    /* Minimal Desktop QR Code Modal */
+    .qr-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .qr-modal.open {
+      display: flex;
+      opacity: 1;
+    }
+
+    .qr-card {
+      background: #ffffff;
+      padding: 28px 24px 24px;
+      border-radius: 20px;
+      text-align: center;
+      max-width: 320px;
+      width: 100%;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+
+    .qr-card h3 {
+      font-size: 17px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 6px;
+    }
+
+    .qr-card p {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 18px;
+      line-height: 1.4;
+    }
+
+    .qr-image-wrapper {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 16px;
+      background: #f9fafb;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    .qr-image-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .qr-close-btn {
+      appearance: none;
+      border: none;
+      background: #f3f4f6;
+      color: #374151;
+      padding: 8px 20px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .qr-close-btn:hover {
+      background: #e5e7eb;
+    }
+
+    @media (max-width: 600px) {
+      .bottom-ui-wrapper {
+        padding-bottom: 10px;
+      }
+
+      .view-mode-bar {
+        margin-bottom: 8px;
+      }
+
+      .ctrl-btn {
+        padding: 8px 15px;
+        font-size: 12.5px;
+      }
+
+      .accessory-panel {
+        padding: 0 10px;
+      }
+
+      .acc-card {
+        padding: 8px 11px;
+      }
+
+      .acc-name {
+        font-size: 12px;
+      }
+
+      .acc-meta {
+        font-size: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Loading Bar -->
+  <div class="progress-bar" id="progress-bar">
+    <div class="update-bar" id="update-bar"></div>
+  </div>
+
+  <!-- Assembling Progress Badge -->
+  <div class="assembling-badge" id="assembling-badge">
+    <div class="spinner"></div>
+    <span>Assembling model...</span>
+  </div>
+
+  <!-- Error Banner -->
+  <div class="error-banner" id="error-banner">
+    <span>Unable to load 3D printer model</span>
+  </div>
+
+  <!-- 3D & AR Model Viewer -->
+  <model-viewer id="printer-viewer" src="Base-Model-TU11.glb" ios-src="Base-Model-TU11.usdz"
+    alt="Sharp Modular 3D Printer Model" camera-controls touch-action="pan-y" auto-rotate auto-rotate-delay="1500"
+    rotation-per-second="20deg" camera-orbit="40deg 75deg auto" camera-target="auto auto auto" shadow-intensity="1.3"
+    shadow-softness="0.5" exposure="1.0" interaction-prompt="none" ar ar-modes="webxr scene-viewer quick-look"
+    ar-scale="auto" ar-placement="floor">
+    <!-- Hidden default slot button for model-viewer native AR hooks -->
+    <button slot="ar-button" id="default-ar-button" style="display:none;"></button>
+  </model-viewer>
+
+  <!-- Bottom UI Container -->
+  <div class="bottom-ui-wrapper">
+    <!-- View Mode Controls: 3D View & AR View -->
+    <div class="view-mode-bar">
+      <!-- 3D View Option -->
+      <button id="btn-3d" class="ctrl-btn active" title="3D View">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path
+            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+          </path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        <span>3D View</span>
+      </button>
+
+      <!-- AR View Button -->
+      <button id="btn-ar" class="ctrl-btn" title="AR View">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M4 8V5a1 1 0 0 1 1-1h3"></path>
+          <path d="M16 4h3a1 1 0 0 1 1 1v3"></path>
+          <path d="M20 16v3a1 1 0 0 1-1 1h-3"></path>
+          <path d="M8 20H5a1 1 0 0 1-1-1v-3"></path>
+          <polygon points="12 8 8 10.3 8 14.7 12 17 16 14.7 16 10.3 12 8"></polygon>
+        </svg>
+        <span>AR View</span>
+      </button>
+    </div>
+
+    <!-- Accessory Selection Panel -->
+    <div class="accessory-panel">
+      <div class="accessory-scroll" id="accessory-list">
+        <!-- Dynamically populated from manifest.json -->
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code Modal (for Desktop Users) -->
+  <div class="qr-modal" id="qr-modal">
+    <div class="qr-card">
+      <h3>Scan for Mobile AR</h3>
+      <p>Scan with your phone's camera to place the printer in your room.</p>
+      <div class="qr-image-wrapper">
+        <img id="qr-image" alt="QR Code" src="" />
+      </div>
+      <button class="qr-close-btn" id="qr-close-btn">Close</button>
+    </div>
+  </div>
+
+  <script>
+    // Elements
+    const viewer = document.getElementById('printer-viewer');
+    const btn3D = document.getElementById('btn-3d');
+    const btnAR = document.getElementById('btn-ar');
+    const defaultARButton = document.getElementById('default-ar-button');
+    const progressBar = document.getElementById('progress-bar');
+    const updateBar = document.getElementById('update-bar');
+    const assemblingBadge = document.getElementById('assembling-badge');
+    const errorBanner = document.getElementById('error-banner');
+    const accessoryListEl = document.getElementById('accessory-list');
+    const qrModal = document.getElementById('qr-modal');
+    const qrImage = document.getElementById('qr-image');
+    const qrCloseBtn = document.getElementById('qr-close-btn');
+
+    // Shared Selection State: Set of selected accessory filenames
+    const selectedAccessories = new Set();
+    let manifestData = null;
+
+    // Check URL parameters for pre-selected parts (e.g. when opening from mobile QR scan)
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialParts = urlParams.get('parts');
+    if (initialParts) {
+      initialParts.split(',').forEach(p => {
+        if (p.trim()) selectedAccessories.add(p.trim());
+      });
+    }
+
+    // Model loading progress
+    viewer.addEventListener('progress', (event) => {
+      const percentage = Math.round(event.detail.totalProgress * 100);
+      updateBar.style.width = percentage + '%';
+      if (percentage >= 100) {
+        setTimeout(() => {
+          progressBar.classList.add('hide');
+          assemblingBadge.classList.remove('show');
+        }, 300);
+      }
+    });
+
+    // Model load error handling
+    viewer.addEventListener('error', (event) => {
+      console.error('Model loading error:', event);
+      progressBar.classList.add('hide');
+      assemblingBadge.classList.remove('show');
+      errorBanner.classList.add('show');
+    });
+
+    // Fetch manifest and populate accessory selection panel
+    async function initAccessories() {
+      try {
+        const res = await fetch('/api/manifest');
+        if (!res.ok) throw new Error('Failed to load manifest');
+        manifestData = await res.json();
+        renderAccessoryPanel(manifestData);
+
+        // If URL had initial parts, trigger initial model assembly
+        if (selectedAccessories.size > 0) {
+          updateModelAssembly();
+        }
+      } catch (err) {
+        console.error('Failed to load accessories manifest:', err);
+        // Fallback default accessories list if manifest API fails
+        renderAccessoryPanel({
+          components: {
+            "TRAY-DE12.glb": { displayName: "Paper Feed Tray Deck (DE12)", category: "Paper Feed" },
+            "Finisher-FN15.glb": { displayName: "Staple Finisher Unit (FN15)", category: "Finishing" },
+            "Large-Capacitor-LC10.glb": { displayName: "Large Capacity Cassette (LC10)", category: "Paper Feed" },
+            "BP-UT10.glb": { displayName: "Utility Tray / Bypass (BP-UT10)", category: "Accessories" },
+            "BP-TR12.glb": { displayName: "Exit Job Tray Primary (BP-TR12)", category: "Output" },
+            "BP-TR12 1.glb": { displayName: "Upper Exit Tray Guide (BP-TR12 Variant)", category: "Output" }
+          }
+        });
+      }
+    }
+
+    // Render Accessory Cards with Checkboxes
+    function renderAccessoryPanel(manifest) {
+      accessoryListEl.innerHTML = '';
+      const components = manifest.components || {};
+
+      for (const [filename, info] of Object.entries(components)) {
+        // Skip base model from accessory toggle list
+        if (filename === 'Base-Model-TU11.glb') continue;
+
+        const isSelected = selectedAccessories.has(filename);
+        const card = document.createElement('div');
+        card.className = 'acc-card' + (isSelected ? ' selected' : '');
+        card.dataset.filename = filename;
+
+        card.innerHTML = `
+          <div class="acc-checkbox">
+            <svg viewBox="0 0 24 24" fill="none">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div class="acc-info">
+            <span class="acc-name">${info.displayName || filename}</span>
+            <span class="acc-meta">${info.category || info.partNumber || 'Accessory'}</span>
+          </div>
+        `;
+
+        card.addEventListener('click', () => toggleAccessory(filename, card));
+        accessoryListEl.appendChild(card);
+      }
+    }
+
+    // Toggle accessory selection and update 3D model
+    function toggleAccessory(filename, cardEl) {
+      if (selectedAccessories.has(filename)) {
+        selectedAccessories.delete(filename);
+        cardEl.classList.remove('selected');
+      } else {
+        selectedAccessories.add(filename);
+        cardEl.classList.add('selected');
+      }
+
+      updateModelAssembly();
+    }
+
+    // Dynamic 3D Model Assembly Updater
+    let assemblyTimeout = null;
+    function updateModelAssembly() {
+      clearTimeout(assemblyTimeout);
+      assemblingBadge.classList.add('show');
+      progressBar.classList.remove('hide');
+      updateBar.style.width = '30%';
+
+      assemblyTimeout = setTimeout(async () => {
+        try {
+          if (selectedAccessories.size === 0) {
+            // Only base model selected
+            viewer.src = 'Base-Model-TU11.glb';
+            viewer.setAttribute('ios-src', 'Base-Model-TU11.usdz');
+          } else {
+            // Assembled model with base + selected accessories
+            const sortedParts = Array.from(selectedAccessories).sort().join(',');
+            const assembledUrl = `/api/assemble?parts=${encodeURIComponent(sortedParts)}`;
+
+            // Set the new combined GLB
+            viewer.src = assembledUrl;
+            // For iOS Quick Look, model-viewer will auto-generate USDZ from the combined GLB
+            viewer.removeAttribute('ios-src');
+          }
+        } catch (e) {
+          console.error('Failed to update assembled model:', e);
+          assemblingBadge.classList.remove('show');
+        }
+      }, 100);
+    }
+
+    // 3D View Click: Center model and resume turntable orbit
+    btn3D.addEventListener('click', () => {
+      btn3D.classList.add('active');
+      btnAR.classList.remove('active');
+
+      // Smoothly reset camera orientation
+      viewer.cameraTarget = 'auto auto auto';
+      viewer.cameraOrbit = '40deg 75deg auto';
+      viewer.autoRotate = true;
+    });
+
+    // AR View Click: Launch AR on mobile or display QR code on desktop
+    btnAR.addEventListener('click', async () => {
+      btnAR.classList.add('active');
+      btn3D.classList.remove('active');
+
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      // On mobile or if model-viewer reports AR capability: launch directly
+      if (isMobile || viewer.canActivateAR) {
+        try {
+          if (defaultARButton && defaultARButton.click) {
+            defaultARButton.click();
+          } else {
+            await viewer.activateAR();
+          }
+        } catch (err) {
+          console.warn('Direct AR launch attempt:', err);
+          viewer.activateAR();
+        }
+      } else {
+        // Desktop: show QR code so user can scan with mobile phone
+        openQRModal();
+      }
+    });
+
+    // QR Modal Controls
+    async function openQRModal() {
+      qrModal.classList.add('open');
+
+      // Determine base URL (tunnel URL if known from server, else current window origin)
+      let targetBase = window.location.origin;
+      try {
+        const res = await fetch('/api/info');
+        if (res.ok) {
+          const info = await res.json();
+          if (info.tunnelUrl) {
+            targetBase = info.tunnelUrl;
+          }
+        }
+      } catch (e) {
+        // Fallback to window.location.origin
+      }
+
+      // Append currently selected accessories to URL so mobile opens with exact assembly!
+      let targetUrl = targetBase;
+      if (selectedAccessories.size > 0) {
+        const sortedParts = Array.from(selectedAccessories).sort().join(',');
+        targetUrl += `/?parts=${encodeURIComponent(sortedParts)}`;
+      }
+
+      // Fetch QR Code from local server endpoint
+      try {
+        const qrRes = await fetch('/api/qrcode?text=' + encodeURIComponent(targetUrl));
+        if (qrRes.ok) {
+          const qrData = await qrRes.json();
+          qrImage.src = qrData.dataUrl;
+        }
+      } catch (err) {
+        console.error('Failed to load QR code:', err);
+      }
+    }
+
+    function closeQRModal() {
+      qrModal.classList.remove('open');
+      btnAR.classList.remove('active');
+      btn3D.classList.add('active');
+    }
+
+    qrCloseBtn.addEventListener('click', closeQRModal);
+    qrModal.addEventListener('click', (e) => {
+      if (e.target === qrModal) closeQRModal();
+    });
+
+    // When user starts interacting manually, maintain 3D view state
+    viewer.addEventListener('camera-change', () => {
+      if (!btn3D.classList.contains('active')) {
+        btn3D.classList.add('active');
+        btnAR.classList.remove('active');
+      }
+    });
+
+    // Listen to AR status changes (e.g. user returns from AR mode)
+    viewer.addEventListener('ar-status', (event) => {
+      if (event.detail.status === 'not-presenting') {
+        btn3D.classList.add('active');
+        btnAR.classList.remove('active');
+      }
+    });
+
+    // Initialize application
+    initAccessories();
+  </script>
+</body>
+
+</html>

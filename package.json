@@ -1,0 +1,29 @@
+{
+  "name": "modelviewer",
+  "version": "1.0.0",
+  "description": "Minimal 3D and AR Printer Model Viewer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "tunnel": "npx --yes cloudflared tunnel --url http://localhost:3000",
+    "dev": "node server.js --tunnel"
+  },
+  "dependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "@google/model-viewer": "^4.0.0",
+    "qrcode": "^1.5.4",
+    "ws": "^8.22.1"
+  },
+  "keywords": [
+    "3d",
+    "augmented-reality",
+    "webxr",
+    "scene-viewer",
+    "quick-look",
+    "model-viewer"
+  ],
+  "author": "",
+  "license": "ISC"
+}
